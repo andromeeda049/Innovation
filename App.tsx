@@ -9,24 +9,18 @@ import HomeMenu from './components/HomeMenu';
 import UserProfile from './components/UserProfile';
 import NutritionLiteracy from './components/NutritionLiteracy';
 import Settings from './components/Settings';
-import Auth from './components/Auth'; // Import Auth component
+import Auth from './components/Auth';
+import AdminDashboard from './components/AdminDashboard';
 import { AppProvider, AppContext } from './context/AppContext';
 import { AppView, User } from './types';
 import { HomeIcon, ScaleIcon, FireIcon, CameraIcon, SparklesIcon, ClipboardListIcon, MenuIcon, XIcon, SquaresIcon, UserCircleIcon, BookOpenIcon, SunIcon, MoonIcon, CogIcon, LogoutIcon } from './components/icons';
+import { saveDataToSheet } from './services/googleSheetService';
 
 const AppContent: React.FC = () => {
   const { activeView, setActiveView, theme, setTheme, currentUser, logout } = useContext(AppContext);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [theme]);
   
    useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -68,13 +62,15 @@ const AppContent: React.FC = () => {
       case 'literacy':
         return <NutritionLiteracy />;
       case 'settings':
-        return <Settings />;
+        return currentUser?.role === 'admin' ? <Settings /> : <HomeMenu />;
+      case 'adminDashboard':
+        return currentUser?.role === 'admin' ? <AdminDashboard /> : <HomeMenu />;
       default:
         return <HomeMenu />;
     }
   };
 
-  const viewTitles: { [key in AppView]: string } = {
+  const viewTitles: { [key in AppView]?: string } = {
     home: 'หน้าแรก',
     profile: 'ข้อมูลส่วนตัว',
     dashboard: 'แดชบอร์ด',
@@ -85,6 +81,7 @@ const AppContent: React.FC = () => {
     coach: 'โค้ช AI',
     literacy: 'ความรู้โภชนาการ',
     settings: 'ตั้งค่า',
+    adminDashboard: 'จัดการผู้ใช้',
   };
   
   const NavLink: React.FC<{
@@ -123,8 +120,12 @@ const AppContent: React.FC = () => {
       <nav className="p-4 h-[calc(100%-65px)] flex flex-col justify-between">
         <div>
           <NavLink view="home" label="หน้าแรก" icon={<HomeIcon className="w-6 h-6" />} />
-          <NavLink view="profile" label="ข้อมูลส่วนตัว" icon={<UserCircleIcon className="w-6 h-6" />} />
-          <NavLink view="dashboard" label="แดชบอร์ด" icon={<SquaresIcon className="w-6 h-6" />} />
+          {currentUser?.role === 'user' && (
+            <>
+              <NavLink view="profile" label="ข้อมูลส่วนตัว" icon={<UserCircleIcon className="w-6 h-6" />} />
+              <NavLink view="dashboard" label="แดชบอร์ด" icon={<SquaresIcon className="w-6 h-6" />} />
+            </>
+          )}
           <NavLink view="planner" label="นักวางแผนโภชนาการ" icon={<ClipboardListIcon className="w-6 h-6" />} />
           <NavLink view="food" label="วิเคราะห์อาหาร" icon={<CameraIcon className="w-6 h-6" />} />
           <NavLink view="coach" label="โค้ช AI" icon={<SparklesIcon className="w-6 h-6" />} />
@@ -132,8 +133,14 @@ const AppContent: React.FC = () => {
           <div className="border-t my-4 border-gray-200 dark:border-gray-700"></div>
           <NavLink view="bmi" label="คำนวณ BMI" icon={<ScaleIcon className="w-6 h-6" />} />
           <NavLink view="tdee" label="คำนวณ TDEE" icon={<FireIcon className="w-6 h-6" />} />
-          <div className="border-t my-4 border-gray-200 dark:border-gray-700"></div>
-          <NavLink view="settings" label="ตั้งค่า" icon={<CogIcon className="w-6 h-6" />} />
+          
+          {currentUser?.role === 'admin' && (
+              <>
+                <div className="border-t my-4 border-gray-200 dark:border-gray-700"></div>
+                <NavLink view="adminDashboard" label="จัดการผู้ใช้" icon={<UserCircleIcon className="w-6 h-6" />} />
+                <NavLink view="settings" label="ตั้งค่า" icon={<CogIcon className="w-6 h-6" />} />
+              </>
+          )}
         </div>
         <div className="p-2">
             <button onClick={toggleTheme} className="w-full flex items-center justify-center gap-3 p-3 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 font-semibold transition-colors">
@@ -145,16 +152,6 @@ const AppContent: React.FC = () => {
     </aside>
   );
 
-  const FloatingHomeButton = () => (
-      <button
-          onClick={() => navigate('home')}
-          className="fixed bottom-6 right-6 z-40 w-16 h-16 bg-teal-500 text-white rounded-full shadow-lg flex items-center justify-center transform transition-all duration-300 hover:bg-teal-600 hover:scale-110 focus:outline-none focus:ring-4 focus:ring-teal-300 dark:focus:ring-teal-800"
-          aria-label="กลับไปหน้าแรก"
-      >
-          <HomeIcon className="w-8 h-8" />
-      </button>
-  );
-  
   const ProfileMenu = () => {
     if (!currentUser) return null;
     
@@ -163,7 +160,7 @@ const AppContent: React.FC = () => {
     return (
         <div className="relative" ref={profileMenuRef}>
             <button onClick={() => setIsProfileMenuOpen(prev => !prev)} className="flex items-center gap-2 p-1 rounded-full transition-colors hover:bg-gray-200 dark:hover:bg-gray-700">
-                <div className="w-9 h-9 rounded-full border-2 border-teal-500 flex items-center justify-center bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                <div className={`w-9 h-9 rounded-full border-2 ${currentUser.role === 'admin' ? 'border-red-500' : 'border-teal-500'} flex items-center justify-center bg-gray-200 dark:bg-gray-700 overflow-hidden`}>
                     {isBase64Image ? (
                         <img src={currentUser.profilePicture} alt="Profile" className="w-full h-full object-cover"/>
                     ) : (
@@ -204,32 +201,46 @@ const AppContent: React.FC = () => {
         <header className="sticky top-0 z-30 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
               <div className="flex items-center justify-between h-16">
-                 <button
-                    onClick={() => setIsMenuOpen(true)}
-                    className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white p-2 -ml-2"
-                    aria-label="เปิดเมนู"
-                  >
-                    <MenuIcon className="w-6 h-6" />
-                  </button>
-                  <h1 className="text-xl font-bold text-gray-800 dark:text-white">{viewTitles[activeView]}</h1>
-                  <div className="w-10">
+                 <div className="flex-1 flex justify-start items-center gap-1">
+                    <button
+                        onClick={() => setIsMenuOpen(true)}
+                        className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white p-2 -ml-2"
+                        aria-label="เปิดเมนู"
+                    >
+                        <MenuIcon className="w-6 h-6" />
+                    </button>
+                     {activeView !== 'home' && (
+                        <button
+                            onClick={() => navigate('home')}
+                            className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white p-2 rounded-full"
+                            aria-label="กลับไปหน้าแรก"
+                        >
+                            <HomeIcon className="w-6 h-6" />
+                        </button>
+                    )}
+                 </div>
+                  
+                  <div className="flex-1 flex justify-center">
+                    <h1 className="text-xl font-bold text-gray-800 dark:text-white truncate">{viewTitles[activeView]}</h1>
+                  </div>
+
+                  <div className="flex-1 flex justify-end">
                     {currentUser && <ProfileMenu />}
                   </div>
               </div>
           </div>
         </header>
 
-        <main className="max-w-7xl mx-auto p-4 sm:p-6 md:p-8 w-full">
-            <div className="max-w-4xl mx-auto">
+        <main className="max-w-7xl mx-auto p-4 sm:p-6 md:px-8 w-full">
+            <div className={activeView === 'adminDashboard' ? 'w-full' : 'max-w-4xl mx-auto'}>
               {renderView()}
             </div>
             <footer className="text-center mt-12 text-gray-500 dark:text-gray-400 text-sm">
-              <p>ขับเคลื่อนโดย Gemini API</p>
-              <p>พัฒนาขึ้นเพื่อการสาธิตเท่านั้น</p>
+              <p>พัฒนาโดย นายธงชัย ทำเผือก</p>
+              <p>กลุ่มงานสุขภาพดิจิทัล สำนักงานสาธารณสุขจังหวัดสตูล</p>
             </footer>
         </main>
       </div>
-      {activeView !== 'home' && <FloatingHomeButton />}
     </div>
   );
 };

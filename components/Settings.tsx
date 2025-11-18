@@ -3,19 +3,35 @@ import { AppContext } from '../context/AppContext';
 import { SunIcon, MoonIcon } from './icons';
 
 const Settings: React.FC = () => {
-    const { scriptUrl, setScriptUrl, isDataSynced, theme, setTheme } = useContext(AppContext);
-    const [currentUrl, setCurrentUrl] = useState(scriptUrl);
-    const [saved, setSaved] = useState(false);
+    const { scriptUrl, setScriptUrl, apiKey, setApiKey, isDataSynced, theme, setTheme } = useContext(AppContext);
+    
+    const [currentScriptUrl, setCurrentScriptUrl] = useState(scriptUrl);
+    const [currentApiKey, setCurrentApiKey] = useState(apiKey);
+    const [saved, setSaved] = useState<'none' | 'sheets' | 'api'>('none');
+    const [showGoogleSheetsSettings, setShowGoogleSheetsSettings] = useState(false);
+    const [showApiKeySettings, setShowApiKeySettings] = useState(false);
 
     useEffect(() => {
-        setCurrentUrl(scriptUrl);
+        setCurrentScriptUrl(scriptUrl);
     }, [scriptUrl]);
 
-    const handleSave = (e: React.FormEvent) => {
+    useEffect(() => {
+        setCurrentApiKey(apiKey);
+    }, [apiKey]);
+
+
+    const handleSheetsSave = (e: React.FormEvent) => {
         e.preventDefault();
-        setScriptUrl(currentUrl);
-        setSaved(true);
-        setTimeout(() => setSaved(false), 3000);
+        setScriptUrl(currentScriptUrl);
+        setSaved('sheets');
+        setTimeout(() => setSaved('none'), 3000);
+    };
+    
+    const handleApiSave = (e: React.FormEvent) => {
+        e.preventDefault();
+        setApiKey(currentApiKey);
+        setSaved('api');
+        setTimeout(() => setSaved('none'), 3000);
     };
 
     return (
@@ -47,78 +63,107 @@ const Settings: React.FC = () => {
             </div>
 
             <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg w-full">
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-2 text-center">ตั้งค่าการเชื่อมต่อ Google Sheets</h2>
-                <p className="text-center text-gray-600 dark:text-gray-300 mb-6">
-                    เชื่อมต่อแอปพลิเคชันกับ Google Sheets เพื่อบันทึกและซิงค์ข้อมูลส่วนตัวของคุณ
-                </p>
-
-                {saved && (
-                    <div className="bg-green-100 dark:bg-green-900/50 border-l-4 border-green-500 text-green-700 dark:text-green-300 p-4 rounded-md mb-6" role="alert">
-                        <p className="font-bold">บันทึก URL สำเร็จ!</p>
-                        <p>แอปจะพยายามดึงข้อมูลล่าสุดเมื่อคุณเปิดแอปครั้งถัดไป</p>
+                 <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                        <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
+                           ตั้งค่า Gemini API Key
+                        </h2>
+                        <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">
+                            (สำหรับผู้ใช้ขั้นสูง) ตั้งค่า API Key ของคุณเอง
+                        </p>
+                    </div>
+                    <label htmlFor="toggle-api" className="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="toggle-api" className="sr-only peer" checked={showApiKeySettings} onChange={() => setShowApiKeySettings(prev => !prev)} />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 dark:peer-focus:ring-teal-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-teal-600"></div>
+                    </label>
+                </div>
+               
+                {showApiKeySettings && (
+                    <div className="mt-6 border-t pt-6 dark:border-gray-700 animate-fade-in">
+                        {saved === 'api' && (
+                            <div className="bg-green-100 dark:bg-green-900/50 border-l-4 border-green-500 text-green-700 dark:text-green-300 p-4 rounded-md mb-6" role="alert">
+                                <p className="font-bold">บันทึก API Key สำเร็จ!</p>
+                            </div>
+                        )}
+                        <form onSubmit={handleApiSave} className="space-y-4">
+                            <div>
+                                <label htmlFor="apiKey" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    Gemini API Key
+                                </label>
+                                <input
+                                    type="password"
+                                    id="apiKey"
+                                    value={currentApiKey}
+                                    onChange={(e) => setCurrentApiKey(e.target.value)}
+                                    placeholder="วาง API Key ของคุณที่นี่"
+                                    className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:ring-2 focus:ring-teal-500"
+                                    required
+                                />
+                            </div>
+                            <button type="submit" className="w-full bg-teal-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-300 dark:focus:ring-teal-700 transition-colors duration-300">
+                                บันทึก API Key
+                            </button>
+                        </form>
                     </div>
                 )}
-                
-                 <div className="flex items-center gap-2 mb-4 p-3 bg-blue-50 dark:bg-blue-900/50 rounded-lg">
-                    <span className={`w-3 h-3 rounded-full ${isDataSynced ? 'bg-green-500' : 'bg-yellow-500 animate-pulse'}`}></span>
-                    <p className="text-sm text-blue-800 dark:text-blue-200">
-                        สถานะ: {isDataSynced ? 'ข้อมูลเป็นปัจจุบัน' : 'กำลังซิงค์ข้อมูล...'}
-                    </p>
-                </div>
-
-
-                <form onSubmit={handleSave} className="space-y-4">
-                    <div>
-                        <label htmlFor="scriptUrl" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Web App URL จาก Google Apps Script
-                        </label>
-                        <input
-                            type="url"
-                            id="scriptUrl"
-                            value={currentUrl}
-                            onChange={(e) => setCurrentUrl(e.target.value)}
-                            placeholder="https://script.google.com/macros/s/.../exec"
-                            className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:ring-2 focus:ring-teal-500"
-                            required
-                        />
-                    </div>
-                    <button
-                        type="submit"
-                        className="w-full bg-teal-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-300 dark:focus:ring-teal-700 transition-colors duration-300"
-                    >
-                        บันทึกการเชื่อมต่อ
-                    </button>
-                </form>
             </div>
 
             <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg w-full">
-                <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">วิธีการตั้งค่า</h3>
-                <div className="prose prose-sm dark:prose-invert max-w-none text-gray-700 dark:text-gray-300">
-                    <ol className="list-decimal pl-5 space-y-4">
-                        <li>
-                            <strong>สร้าง Google Sheet:</strong> ไปที่ <a href="https://sheets.new" target="_blank" rel="noopener noreferrer" className="text-teal-600 dark:text-teal-400 font-semibold">sheets.new</a> และตั้งชื่อคอลัมน์ในแถวแรก (A1-H1) ดังนี้: 
-                            <code className="block bg-gray-100 dark:bg-gray-700 p-2 rounded-md mt-1 text-xs">timestamp, gender, age, weight, height, waist, hip, activityLevel</code>
-                        </li>
-                        <li>
-                            <strong>เปิด Apps Script:</strong> ใน Google Sheet, ไปที่เมนู `ส่วนขยาย` &gt; `Apps Script`
-                        </li>
-                        <li>
-                            <strong>เพิ่มโค้ด:</strong> ลบโค้ดที่มีอยู่และคัดลอกโค้ดจาก `README.md` ของโปรเจกต์นี้ไปวางแทนที่ จากนั้นกดบันทึก (💾)
-                        </li>
-                        <li>
-                            <strong>Deploy สคริปต์:</strong>
-                            <ul className="list-disc pl-5 mt-2 space-y-1">
-                                <li>คลิกปุ่มสีน้ำเงิน `ทำให้ใช้งานได้` &gt; `การทำให้ใช้งานได้รายการใหม่`</li>
-                                <li>คลิกไอคอนฟันเฟือง (⚙️) และเลือกประเภทเป็น `เว็บแอป`</li>
-                                <li>ตั้งค่า "ผู้ที่เข้าถึงได้" เป็น **`ทุกคน (Anyone)`** (สำคัญมาก!)</li>
-                                <li>กด `ทำให้ใช้งานได้` และให้สิทธิ์การเข้าถึง (Authorize access) ตามขั้นตอน</li>
-                            </ul>
-                        </li>
-                         <li>
-                            <strong>ใช้งาน URL:</strong> คัดลอก `URL ของเว็บแอป` ที่ได้รับมา และนำมาวางในช่องด้านบน แล้วกดบันทึก
-                        </li>
-                    </ol>
+                 <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                        <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
+                           ตั้งค่าการเชื่อมต่อ Google Sheets
+                        </h2>
+                        <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">
+                            (สำหรับผู้ใช้ขั้นสูง) เชื่อมต่อเพื่อบันทึกและซิงค์ข้อมูลของคุณ
+                        </p>
+                    </div>
+                    <label htmlFor="toggle-sheets" className="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="toggle-sheets" className="sr-only peer" checked={showGoogleSheetsSettings} onChange={() => setShowGoogleSheetsSettings(prev => !prev)} />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 dark:peer-focus:ring-teal-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-teal-600"></div>
+                    </label>
                 </div>
+               
+                {showGoogleSheetsSettings && (
+                    <div className="mt-6 border-t pt-6 dark:border-gray-700 animate-fade-in">
+                        {saved === 'sheets' && (
+                            <div className="bg-green-100 dark:bg-green-900/50 border-l-4 border-green-500 text-green-700 dark:text-green-300 p-4 rounded-md mb-6" role="alert">
+                                <p className="font-bold">บันทึก URL สำเร็จ!</p>
+                                <p>แอปจะพยายามดึงข้อมูลล่าสุดเมื่อคุณเปิดแอปครั้งถัดไป</p>
+                            </div>
+                        )}
+                        
+                        <div className="flex items-center gap-2 mb-4 p-3 bg-blue-50 dark:bg-blue-900/50 rounded-lg">
+                            <span className={`w-3 h-3 rounded-full ${isDataSynced ? 'bg-green-500' : 'bg-yellow-500 animate-pulse'}`}></span>
+                            <p className="text-sm text-blue-800 dark:text-blue-200">
+                                สถานะ: {isDataSynced ? 'ข้อมูลเป็นปัจจุบัน' : 'กำลังซิงค์ข้อมูล...'}
+                            </p>
+                        </div>
+
+                        <form onSubmit={handleSheetsSave} className="space-y-4">
+                            <div>
+                                <label htmlFor="scriptUrl" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    Web App URL จาก Google Apps Script
+                                </label>
+                                <input
+                                    type="url"
+                                    id="scriptUrl"
+                                    value={currentScriptUrl}
+                                    onChange={(e) => setCurrentScriptUrl(e.target.value)}
+                                    placeholder="https://script.google.com/macros/s/.../exec"
+                                    className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:ring-2 focus:ring-teal-500"
+                                    required
+                                />
+                            </div>
+                            <button
+                                type="submit"
+                                className="w-full bg-teal-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-300 dark:focus:ring-teal-700 transition-colors duration-300"
+                            >
+                                บันทึกการเชื่อมต่อ
+                            </button>
+                        </form>
+                    </div>
+                )}
             </div>
         </div>
     );

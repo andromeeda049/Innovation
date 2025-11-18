@@ -38,18 +38,38 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [latestFoodAnalysis, setLatestFoodAnalysis] = useLocalStorage<NutrientInfo | null>('latestFoodAnalysis', null);
   const [userProfile, _setUserProfile] = useLocalStorage<UserProfile>('userProfile', defaultProfile);
   const [scriptUrl, setScriptUrl] = useLocalStorage<string>('googleScriptUrl', 'https://script.google.com/macros/s/AKfycbx6e8zDxmmoZWg2iW_oQHlpfqWZrpS-2Vkq9aFPlnW5MVdGPf8_-yaEJ7iugtdAWvJT/exec');
+  const [apiKey, setApiKey] = useLocalStorage<string>('geminiApiKey', (typeof process !== 'undefined' && process.env.API_KEY) || '');
   const [isDataSynced, setIsDataSynced] = useState(true);
+
+  // Theme management
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
 
   // --- Auth Functions ---
   const login = (user: User) => {
     setCurrentUser(user);
-    // When a new user logs in, we should clear old data
     _setUserProfile(defaultProfile);
     _setBmiHistory([]);
     _setTdeeHistory([]);
     _setFoodHistory([]);
     _setPlannerHistory([]);
     setLatestFoodAnalysis(null);
+    setActiveView('home');
+
+    if (scriptUrl) {
+      // Log the login event. No need to wait for it.
+      saveDataToSheet(scriptUrl, 'loginLog', user, user);
+    }
+    
+     // Automatically save admin profile since it's not editable
+    if (user.role === 'admin' && scriptUrl) {
+      saveDataToSheet(scriptUrl, 'profile', defaultProfile, user);
+    }
   };
 
   const logout = () => {
@@ -60,7 +80,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // ดึงข้อมูลทั้งหมดจาก Google Sheet เมื่อเปิดแอป
   useEffect(() => {
     const loadAllData = async () => {
-      if (scriptUrl && currentUser) {
+      // Only fetch data for users, not for admins as they have a separate dashboard
+      if (scriptUrl && currentUser && currentUser.role === 'user') {
         setIsDataSynced(false);
         const fetchedData = await fetchAllDataFromSheet(scriptUrl, currentUser);
         if (fetchedData) {
@@ -81,65 +102,62 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const setUserProfile = useCallback((profileData: UserProfile, accountData: { displayName: string; profilePicture: string; }) => {
     if (!currentUser) return;
     
-    // 1. Create the updated user object
     const updatedUser = {
         ...currentUser,
         displayName: accountData.displayName,
         profilePicture: accountData.profilePicture
     };
     
-    // 2. Update the state in the context
     setCurrentUser(updatedUser);
     _setUserProfile(profileData);
     
-    // 3. Save to Google Sheet using the updated user object
     if (scriptUrl) {
         saveDataToSheet(scriptUrl, 'profile', profileData, updatedUser);
     }
 }, [scriptUrl, currentUser, setCurrentUser, _setUserProfile]);
 
   const setBmiHistory = useCallback((value: React.SetStateAction<BMIHistoryEntry[]>) => {
-    if (!currentUser) return;
+    if (!currentUser || currentUser.role === 'admin') return;
     const newHistory = value instanceof Function ? value(bmiHistory) : value;
     _setBmiHistory(newHistory);
     if (scriptUrl && newHistory.length > 0) saveDataToSheet(scriptUrl, 'bmiHistory', newHistory, currentUser);
   }, [scriptUrl, _setBmiHistory, bmiHistory, currentUser]);
   
   const setTdeeHistory = useCallback((value: React.SetStateAction<TDEEHistoryEntry[]>) => {
-    if (!currentUser) return;
+    if (!currentUser || currentUser.role === 'admin') return;
     const newHistory = value instanceof Function ? value(tdeeHistory) : value;
     _setTdeeHistory(newHistory);
     if (scriptUrl && newHistory.length > 0) saveDataToSheet(scriptUrl, 'tdeeHistory', newHistory, currentUser);
   }, [scriptUrl, _setTdeeHistory, tdeeHistory, currentUser]);
 
   const setFoodHistory = useCallback((value: React.SetStateAction<FoodHistoryEntry[]>) => {
-    if (!currentUser) return;
+    if (!currentUser || currentUser.role === 'admin') return;
     const newHistory = value instanceof Function ? value(foodHistory) : value;
     _setFoodHistory(newHistory);
     if (scriptUrl && newHistory.length > 0) saveDataToSheet(scriptUrl, 'foodHistory', newHistory, currentUser);
   }, [scriptUrl, _setFoodHistory, foodHistory, currentUser]);
   
   const setPlannerHistory = useCallback((value: React.SetStateAction<PlannerHistoryEntry[]>) => {
-    if (!currentUser) return;
+    if (!currentUser || currentUser.role === 'admin') return;
     const newHistory = value instanceof Function ? value(plannerHistory) : value;
     _setPlannerHistory(newHistory);
     if (scriptUrl && newHistory.length > 0) saveDataToSheet(scriptUrl, 'plannerHistory', newHistory, currentUser);
   }, [scriptUrl, _setPlannerHistory, plannerHistory, currentUser]);
 
   const clearBmiHistory = useCallback(() => {
-    if (!currentUser) return;
+    if (!currentUser || currentUser.role === 'admin') return;
     _setBmiHistory([]);
     if (scriptUrl) clearHistoryInSheet(scriptUrl, 'bmiHistory', currentUser);
   }, [scriptUrl, _setBmiHistory, currentUser]);
   
   const clearTdeeHistory = useCallback(() => {
-     if (!currentUser) return;
+     if (!currentUser || currentUser.role === 'admin') return;
     _setTdeeHistory([]);
     if (scriptUrl) clearHistoryInSheet(scriptUrl, 'tdeeHistory', currentUser);
   }, [scriptUrl, _setTdeeHistory, currentUser]);
   
   const clearFoodHistory = useCallback(() => {
-     if (!currentUser) return;
+     if (!currentUser || currentUser.role === 'admin') return;
     _setFoodHistory([]);
     if (scriptUrl) clearHistoryInSheet(scriptUrl, 'foodHistory', currentUser);
   }, [scriptUrl, _setFoodHistory, currentUser]);
@@ -157,6 +175,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         latestFoodAnalysis, setLatestFoodAnalysis,
         userProfile, setUserProfile,
         scriptUrl, setScriptUrl,
+        apiKey, setApiKey,
         isDataSynced,
         clearBmiHistory,
         clearTdeeHistory,

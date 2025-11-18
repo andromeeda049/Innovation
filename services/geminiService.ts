@@ -1,14 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { NutrientInfo, BMIHistoryEntry, TDEEHistoryEntry, MealPlan, PlannerResults, LocalFoodSuggestion } from '../types';
 
-const API_KEY = process.env.API_KEY;
-
-if (!API_KEY) {
-  throw new Error("API_KEY is not set");
-}
-
-const ai = new GoogleGenAI({ apiKey: API_KEY });
-
 const foodAnalysisSchema = {
   type: Type.OBJECT,
   properties: {
@@ -54,7 +46,9 @@ const foodAnalysisSchema = {
   required: ['calories', 'protein', 'carbohydrates', 'fat', 'description', 'items']
 };
 
-export const analyzeFoodFromImage = async (base64Image: string, mimeType: string): Promise<NutrientInfo> => {
+export const analyzeFoodFromImage = async (base64Image: string, mimeType: string, apiKey: string): Promise<NutrientInfo> => {
+  if (!apiKey) throw new Error('กรุณาตั้งค่า API Key ก่อนใช้งาน');
+  const ai = new GoogleGenAI({ apiKey });
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -100,7 +94,9 @@ export const analyzeFoodFromImage = async (base64Image: string, mimeType: string
   }
 };
 
-export const analyzeFoodFromText = async (text: string): Promise<NutrientInfo> => {
+export const analyzeFoodFromText = async (text: string, apiKey: string): Promise<NutrientInfo> => {
+  if (!apiKey) throw new Error('กรุณาตั้งค่า API Key ก่อนใช้งาน');
+  const ai = new GoogleGenAI({ apiKey });
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -146,7 +142,9 @@ const localFoodSuggestionSchema = {
     }
 };
 
-export const getLocalFoodSuggestions = async (lat: number, lon: number): Promise<LocalFoodSuggestion[]> => {
+export const getLocalFoodSuggestions = async (lat: number, lon: number, apiKey: string): Promise<LocalFoodSuggestion[]> => {
+    if (!apiKey) throw new Error('กรุณาตั้งค่า API Key ก่อนใช้งาน');
+    const ai = new GoogleGenAI({ apiKey });
     const prompt = `
 คุณคือผู้เชี่ยวชาญด้านอาหารท้องถิ่นของไทย
 จากตำแหน่งพิกัดละติจูด ${lat} และลองจิจูด ${lon}, โปรดแนะนำเมนูอาหารท้องถิ่นที่น่าสนใจและเป็นที่นิยมในบริเวณนั้นมา 5-7 อย่าง
@@ -181,7 +179,10 @@ export const getLocalFoodSuggestions = async (lat: number, lon: number): Promise
     }
 }
 
-export const getHealthCoachingTip = async (data: { bmi?: BMIHistoryEntry; tdee?: TDEEHistoryEntry; food?: NutrientInfo | null }): Promise<string> => {
+export const getHealthCoachingTip = async (data: { bmi?: BMIHistoryEntry; tdee?: TDEEHistoryEntry; food?: NutrientInfo | null }, apiKey: string): Promise<string> => {
+  if (!apiKey) return "กรุณาตั้งค่า API Key ในหน้าตั้งค่าก่อนใช้งานฟีเจอร์นี้";
+  const ai = new GoogleGenAI({ apiKey });
+  
   let prompt = "คุณคือโค้ชสุขภาพ AI ที่เป็นมิตรและให้กำลังใจ\n\n";
   prompt += "จากข้อมูลต่อไปนี้:\n";
 
@@ -253,8 +254,11 @@ const mealPlanSchema = {
 export const generateMealPlan = async (
   results: PlannerResults,
   cuisine: string,
-  diet: string
+  diet: string,
+  apiKey: string
 ): Promise<MealPlan> => {
+  if (!apiKey) throw new Error('กรุณาตั้งค่า API Key ก่อนใช้งาน');
+  const ai = new GoogleGenAI({ apiKey });
   const prompt = `
 คุณคือสุดยอดนักโภชนาการที่เชี่ยวชาญด้านอาหารไทย
 สร้างแผนอาหารเพื่อสุขภาพสำหรับ 7 วัน โดยยึดตามเป้าหมายและข้อกำหนดต่อไปนี้อย่างเคร่งครัด:

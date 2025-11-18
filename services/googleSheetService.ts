@@ -8,7 +8,16 @@ interface AllData {
     plannerHistory: PlannerHistoryEntry[];
 }
 
-// ดึงข้อมูลทั้งหมดจาก Google Sheet
+export interface AllAdminData {
+    profiles: any[];
+    bmiHistory: any[];
+    tdeeHistory: any[];
+    foodHistory: any[];
+    plannerHistory: any[];
+    loginLogs: any[];
+}
+
+// ดึงข้อมูลทั้งหมดจาก Google Sheet (สำหรับ User)
 export const fetchAllDataFromSheet = async (scriptUrl: string, user: User): Promise<AllData | null> => {
     if (!scriptUrl || !user) return null;
     try {
@@ -20,10 +29,10 @@ export const fetchAllDataFromSheet = async (scriptUrl: string, user: User): Prom
         });
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         
-        const data = await response.json();
-        if (data && !data.error) {
-             // Sanitize and format data
-            const sanitizedProfile = data.profile ? {
+        const result = await response.json();
+        if (result.status === 'success') {
+             const data = result.data;
+             const sanitizedProfile = data.profile ? {
                 ...data.profile,
                 age: String(data.profile.age || ''),
                 weight: String(data.profile.weight || ''),
@@ -41,9 +50,34 @@ export const fetchAllDataFromSheet = async (scriptUrl: string, user: User): Prom
                 plannerHistory: data.plannerHistory || [],
             };
         }
+        console.error("Error fetching data from sheet:", result.message);
         return null;
     } catch (error) {
         console.error("Error fetching all data from Google Sheet:", error);
+        return null;
+    }
+};
+
+// ดึงข้อมูลทั้งหมดจากทุกชีต (สำหรับ Admin)
+export const fetchAllAdminDataFromSheet = async (scriptUrl: string, adminKey: string): Promise<AllAdminData | null> => {
+    if (!scriptUrl || !adminKey) return null;
+    try {
+        const urlWithParams = `${scriptUrl}?action=getAllData&adminKey=${encodeURIComponent(adminKey)}`;
+        const response = await fetch(urlWithParams, {
+            method: 'GET',
+            redirect: 'follow',
+            mode: 'cors'
+        });
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        
+        const result = await response.json();
+        if (result.status === 'success') {
+            return result.data;
+        }
+        console.error("Admin data fetch error:", result.message);
+        return null;
+    } catch (error) {
+        console.error("Error fetching all admin data from Google Sheet:", error);
         return null;
     }
 };

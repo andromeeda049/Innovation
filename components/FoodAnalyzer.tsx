@@ -108,6 +108,12 @@ const CameraModal: React.FC<{ isOpen: boolean; onClose: () => void; onCapture: (
     );
 };
 
+const GuestLock: React.FC = () => (
+    <div className="absolute inset-0 bg-white/80 dark:bg-gray-800/80 flex items-center justify-center rounded-lg text-center p-4 z-10">
+        <p className="font-semibold text-gray-700 dark:text-gray-300">🔒 กรุณาสร้างโปรไฟล์เพื่อใช้งานฟีเจอร์ AI</p>
+    </div>
+);
+
 const MAX_HISTORY_ITEMS = 15;
 type Mode = 'image' | 'text' | 'location';
 
@@ -133,10 +139,14 @@ const FoodAnalyzer: React.FC = () => {
       setLatestFoodAnalysis, 
       foodHistory, 
       setFoodHistory,
-      clearFoodHistory
+      clearFoodHistory,
+      apiKey,
+      currentUser
   } = useContext(AppContext);
   const [showConfirmDialog, setShowConfirmDialog] = useState<boolean>(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+
+  const isGuest = currentUser?.role === 'guest';
 
   const handleModeChange = (newMode: Mode) => {
     setMode(newMode);
@@ -170,13 +180,13 @@ const FoodAnalyzer: React.FC = () => {
   }
 
   const handleImageAnalyze = async () => {
-    if (!image) return;
+    if (!image || isGuest) return;
     setLoading(true);
     setError(null);
     setResult(null);
     try {
       const { base64, mimeType } = await fileToGenerativePart(image);
-      const analysisResult = await analyzeFoodFromImage(base64, mimeType);
+      const analysisResult = await analyzeFoodFromImage(base64, mimeType, apiKey);
       setResult(analysisResult);
       saveResultToHistory(analysisResult);
     } catch (err: any) {
@@ -188,15 +198,15 @@ const FoodAnalyzer: React.FC = () => {
 
   // --- Text Mode Functions ---
   const handleTextAnalyze = async () => {
-    if (!inputText.trim()) {
-        setError("กรุณาป้อนชื่ออาหารหรือคำอธิบาย");
+    if (!inputText.trim() || isGuest) {
+        if (!inputText.trim()) setError("กรุณาป้อนชื่ออาหารหรือคำอธิบาย");
         return;
     }
     setLoading(true);
     setError(null);
     setResult(null);
     try {
-        const analysisResult = await analyzeFoodFromText(inputText);
+        const analysisResult = await analyzeFoodFromText(inputText, apiKey);
         setResult(analysisResult);
         saveResultToHistory(analysisResult);
     } catch (err: any) {
@@ -208,6 +218,7 @@ const FoodAnalyzer: React.FC = () => {
 
   // --- Location Mode Functions ---
   const handleLocationAnalyze = () => {
+    if (isGuest) return;
     setLoading(true);
     setLocationError(null);
     setSuggestions(null);
@@ -222,7 +233,7 @@ const FoodAnalyzer: React.FC = () => {
         async (position) => {
             try {
                 const { latitude, longitude } = position.coords;
-                const suggestionResult = await getLocalFoodSuggestions(latitude, longitude);
+                const suggestionResult = await getLocalFoodSuggestions(latitude, longitude, apiKey);
                 setSuggestions(suggestionResult);
             } catch (err: any) {
                 setLocationError(err.message || 'เกิดข้อผิดพลาดในการค้นหา');
@@ -233,16 +244,16 @@ const FoodAnalyzer: React.FC = () => {
         (error) => {
             switch (error.code) {
                 case error.PERMISSION_DENIED:
-                    setLocationError("คุณปฏิเสธการเข้าถึงตำแหน่ง");
+                    setLocationError("คุณปฏิเสธการเข้าถึงตำแหน่ง โปรดเปิดการอนุญาตในตั้งค่าเบราว์เซอร์");
                     break;
                 case error.POSITION_UNAVAILABLE:
-                    setLocationError("ข้อมูลตำแหน่งไม่พร้อมใช้งาน");
+                    setLocationError("ไม่สามารถระบุตำแหน่งได้ อาจเกิดจากสัญญาณอ่อน โปรดลองอีกครั้งในที่โล่ง");
                     break;
                 case error.TIMEOUT:
-                    setLocationError("หมดเวลาในการร้องขอตำแหน่ง");
+                    setLocationError("หมดเวลาในการร้องขอตำแหน่ง โปรดตรวจสอบการเชื่อมต่ออินเทอร์เน็ต");
                     break;
                 default:
-                    setLocationError("เกิดข้อผิดพลาดที่ไม่รู้จัก");
+                    setLocationError("เกิดข้อผิดพลาดที่ไม่รู้จักในการระบุตำแหน่ง กรุณาลองใหม่อีกครั้ง");
                     break;
             }
             setLoading(false);
@@ -353,7 +364,8 @@ const FoodAnalyzer: React.FC = () => {
 
         {/* --- Analysis Input Section --- */}
         {mode === 'image' && (
-             <div className="flex flex-col items-center gap-4 animate-fade-in">
+             <div className="flex flex-col items-center gap-4 animate-fade-in relative">
+                {isGuest && <GuestLock />}
                 <div
                     className="w-full h-64 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex items-center justify-center text-gray-500 dark:text-gray-400 cursor-pointer hover:border-purple-400 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-gray-700/50 transition-colors relative"
                     onClick={() => !preview && fileInputRef.current?.click()}
@@ -367,26 +379,28 @@ const FoodAnalyzer: React.FC = () => {
                     {preview && <button onClick={handleResetImage} className="absolute top-2 right-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors" aria-label="Remove image"><XCircleIcon className="w-8 h-8"/></button>}
                 </div>
                 <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
-                <button onClick={handleImageAnalyze} disabled={!image || loading} className="w-full bg-purple-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-purple-600 focus:outline-none focus:ring-4 focus:ring-purple-300 dark:focus:ring-purple-800 transition-all duration-300 transform hover:scale-105 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed disabled:scale-100">{loading ? 'กำลังประมวลผล...' : 'วิเคราะห์รูปภาพ'}</button>
+                <button onClick={handleImageAnalyze} disabled={!image || loading || isGuest} className="w-full bg-purple-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-purple-600 focus:outline-none focus:ring-4 focus:ring-purple-300 dark:focus:ring-purple-800 transition-all duration-300 transform hover:scale-105 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed disabled:scale-100">{loading ? 'กำลังประมวลผล...' : 'วิเคราะห์รูปภาพ'}</button>
             </div>
         )}
 
         {mode === 'text' && (
-            <div className="flex flex-col items-center gap-4 animate-fade-in">
+            <div className="flex flex-col items-center gap-4 animate-fade-in relative">
+                {isGuest && <GuestLock />}
                 <textarea
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
                     placeholder="ป้อนชื่ออาหารหรือคำอธิบาย...&#10;เช่น ข้าวผัดกะเพราหมูสับไข่ดาว"
                     className="w-full h-32 p-4 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
                 />
-                <button onClick={handleTextAnalyze} disabled={!inputText.trim() || loading} className="w-full bg-purple-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-purple-600 focus:outline-none focus:ring-4 focus:ring-purple-300 dark:focus:ring-purple-800 transition-all duration-300 transform hover:scale-105 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed disabled:scale-100">{loading ? 'กำลังประมวลผล...' : 'วิเคราะห์ข้อความ'}</button>
+                <button onClick={handleTextAnalyze} disabled={!inputText.trim() || loading || isGuest} className="w-full bg-purple-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-purple-600 focus:outline-none focus:ring-4 focus:ring-purple-300 dark:focus:ring-purple-800 transition-all duration-300 transform hover:scale-105 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed disabled:scale-100">{loading ? 'กำลังประมวลผล...' : 'วิเคราะห์ข้อความ'}</button>
             </div>
         )}
 
         {mode === 'location' && (
-            <div className="flex flex-col items-center gap-4 text-center animate-fade-in">
+            <div className="flex flex-col items-center gap-4 text-center animate-fade-in relative">
+                {isGuest && <GuestLock />}
                 <p className="text-gray-600 dark:text-gray-300">ให้ AI แนะนำเมนูอาหารท้องถิ่นที่น่าสนใจตามตำแหน่งปัจจุบันของคุณ</p>
-                <button onClick={handleLocationAnalyze} disabled={loading} className="w-full bg-purple-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-purple-600 focus:outline-none focus:ring-4 focus:ring-purple-300 dark:focus:ring-purple-800 transition-all duration-300 transform hover:scale-105 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed disabled:scale-100">{loading ? 'กำลังค้นหา...' : 'ค้นหาอาหารท้องถิ่น'}</button>
+                <button onClick={handleLocationAnalyze} disabled={loading || isGuest} className="w-full bg-purple-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-purple-600 focus:outline-none focus:ring-4 focus:ring-purple-300 dark:focus:ring-purple-800 transition-all duration-300 transform hover:scale-105 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed disabled:scale-100">{loading ? 'กำลังค้นหา...' : 'ค้นหาอาหารท้องถิ่น'}</button>
             </div>
         )}
         

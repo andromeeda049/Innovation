@@ -6,7 +6,9 @@ import { PrinterIcon, ArrowLeftIcon } from './icons';
 import { AppContext } from '../context/AppContext';
 
 const PersonalizedPlanner: React.FC = () => {
-    const { userProfile, plannerHistory, setPlannerHistory } = useContext(AppContext);
+    const { userProfile, plannerHistory, setPlannerHistory, apiKey, currentUser } = useContext(AppContext);
+
+    const isGuest = currentUser?.role === 'guest';
 
     const [formData, setFormData] = useState(() => ({
         gender: userProfile.gender || 'male',
@@ -44,6 +46,7 @@ const PersonalizedPlanner: React.FC = () => {
     };
 
     const handleCalculateAndPlan = async () => {
+        if (isGuest) return;
         setShowResults(true);
         setLoading(true);
         setError(null);
@@ -96,7 +99,7 @@ const PersonalizedPlanner: React.FC = () => {
         setResults(calculatedResults);
 
         try {
-            const plan = await generateMealPlan(calculatedResults, formData.cuisine, formData.diet);
+            const plan = await generateMealPlan(calculatedResults, formData.cuisine, formData.diet, apiKey);
             setMealPlan(plan);
 
             // Save to history
@@ -204,13 +207,20 @@ const PersonalizedPlanner: React.FC = () => {
                 </div>
             </div>
 
-            <button
-                onClick={handleCalculateAndPlan}
-                disabled={loading}
-                className="w-full bg-teal-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-300 dark:focus:ring-teal-800 transition-all duration-300 transform hover:scale-105 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed disabled:scale-100"
-            >
-                {loading ? 'กำลังประมวลผล...' : 'คำนวณและสร้างแผนอาหาร'}
-            </button>
+            <div className="relative">
+                <button
+                    onClick={handleCalculateAndPlan}
+                    disabled={loading || isGuest}
+                    className="w-full bg-teal-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-300 dark:focus:ring-teal-800 transition-all duration-300 transform hover:scale-105 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed disabled:scale-100"
+                >
+                    {loading ? 'กำลังประมวลผล...' : 'คำนวณและสร้างแผนอาหาร'}
+                </button>
+                {isGuest && (
+                    <div className="absolute inset-0 bg-white/80 dark:bg-gray-800/80 flex items-center justify-center rounded-lg text-center p-4">
+                        <p className="font-semibold text-gray-700 dark:text-gray-300">🔒 กรุณาสร้างโปรไฟล์เพื่อใช้งานฟีเจอร์ AI</p>
+                    </div>
+                )}
+            </div>
             {error && <p className="text-center text-red-500 bg-red-100 dark:bg-red-900/50 dark:text-red-400 p-3 rounded-lg mt-4">{error}</p>}
         </div>
     );

@@ -14,9 +14,12 @@ const AICoach: React.FC = () => {
   const [tip, setTip] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const { bmiHistory, tdeeHistory, latestFoodAnalysis } = useContext(AppContext);
+  const { bmiHistory, tdeeHistory, latestFoodAnalysis, apiKey, currentUser } = useContext(AppContext);
+
+  const isGuest = currentUser?.role === 'guest';
 
   const handleGetTip = async () => {
+    if (isGuest) return;
     setLoading(true);
     setError(null);
     setTip(null);
@@ -27,7 +30,7 @@ const AICoach: React.FC = () => {
         bmi: latestBmi,
         tdee: latestTdee,
         food: latestFoodAnalysis,
-      });
+      }, apiKey);
       setTip(tipResult);
     } catch (err: any) {
       setError(err.message || 'เกิดข้อผิดพลาดที่ไม่คาดคิด');
@@ -53,14 +56,19 @@ const AICoach: React.FC = () => {
         </p>
       </div>
 
-      <div className="mt-8">
+      <div className="mt-8 relative">
         <button
           onClick={handleGetTip}
-          disabled={loading}
+          disabled={loading || isGuest}
           className="w-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-bold py-3 px-4 rounded-lg hover:from-indigo-600 hover:to-purple-600 focus:outline-none focus:ring-4 focus:ring-indigo-300 dark:focus:ring-indigo-800 transition-all duration-300 transform hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed disabled:scale-100"
         >
           {loading ? 'กำลังรับคำแนะนำ...' : 'ขอคำแนะนำสำหรับวันนี้'}
         </button>
+        {isGuest && (
+            <div className="absolute inset-0 bg-white/80 dark:bg-gray-800/80 flex items-center justify-center rounded-lg text-center p-4">
+                <p className="font-semibold text-gray-700 dark:text-gray-300">🔒 กรุณาสร้างโปรไฟล์เพื่อใช้งานฟีเจอร์ AI</p>
+            </div>
+        )}
       </div>
       
       <div className="mt-8 min-h-[10rem] flex items-center justify-center">

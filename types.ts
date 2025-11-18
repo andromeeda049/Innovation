@@ -14,13 +14,14 @@ export interface NutrientInfo {
   items: FoodItem[];
 }
 
-export type AppView = 'home' | 'profile' | 'dashboard' | 'bmi' | 'tdee' | 'food' | 'coach' | 'planner' | 'literacy' | 'settings';
+export type AppView = 'home' | 'profile' | 'dashboard' | 'bmi' | 'tdee' | 'food' | 'coach' | 'planner' | 'literacy' | 'settings' | 'adminDashboard';
 export type Theme = 'light' | 'dark';
 
 export interface User {
   username: string;
   displayName: string;
   profilePicture: string;
+  role: 'user' | 'admin' | 'guest';
 }
 
 export interface UserProfile {
@@ -123,6 +124,8 @@ export interface AppContextType {
   setUserProfile: (profileData: UserProfile, accountData: { displayName: string; profilePicture: string; }) => void;
   scriptUrl: string;
   setScriptUrl: React.Dispatch<React.SetStateAction<string>>;
+  apiKey: string;
+  setApiKey: React.Dispatch<React.SetStateAction<string>>;
   isDataSynced: boolean;
   clearBmiHistory: () => void;
   clearTdeeHistory: () => void;

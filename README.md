@@ -25,6 +25,7 @@
         *   `I1`: `waist`
         *   `J1`: `hip`
         *   `K1`: `activityLevel`
+        *   `L1`: `role`
 
     *   **ชีตที่ 2: `BMIHistory`**
         *   `A1`: `timestamp`
@@ -60,12 +61,18 @@
         *   `F1`: `diet`
         *   `G1`: `tdee_goal`
         *   `H1`: `plan_json`
+    
+    *   **ชีตที่ 6: `LoginLogs`**
+        *   `A1`: `timestamp`
+        *   `B1`: `username`
+        *   `C1`: `displayName`
+        *   `D1`: `role`
 
 ### ขั้นตอนที่ 2: เปิด Apps Script Editor
 
 1.  ใน Google Sheet ของคุณ ไปที่เมนู `ส่วนขยาย (Extensions)` > `Apps Script`
 
-### ขั้นตอนที่ 3: เพิ่มโค้ดสคริปต์ (เวอร์ชันใหม่)
+### ขั้นตอนที่ 3: เพิ่มโค้ดสคริปต์ (เวอร์ชันล่าสุด)
 
 1.  ลบโค้ดที่มีอยู่ทั้งหมดในไฟล์ `Code.gs`
 2.  คัดลอกโค้ด **ทั้งหมด** ด้านล่างนี้ไปวางแทนที่:
@@ -78,11 +85,30 @@ const SHEET_NAMES = {
   BMI: "BMIHistory",
   TDEE: "TDEEHistory",
   FOOD: "FoodHistory",
-  PLANNER: "PlannerHistory"
+  PLANNER: "PlannerHistory",
+  LOGIN_LOGS: "LoginLogs"
 };
+
+// !!! สำคัญ: ตั้งค่า Admin Key ของคุณที่นี่ !!!
+// นี่คือรหัสผ่านสำหรับเข้าสู่โหมดผู้ดูแลระบบในแอป
+const ADMIN_KEY = "SUPER_SECRET_ADMIN_KEY_HERE";
 
 function doGet(e) {
   try {
+    // --- Admin Path: ดึงข้อมูลทั้งหมดสำหรับหน้า Dashboard ของ Admin ---
+    if (e.parameter.action === 'getAllData' && e.parameter.adminKey === ADMIN_KEY) {
+       const allData = {
+          profiles: getAllRowsAsObjects(SHEET_NAMES.PROFILE),
+          bmiHistory: getAllRowsAsObjects(SHEET_NAMES.BMI),
+          tdeeHistory: getAllRowsAsObjects(SHEET_NAMES.TDEE),
+          foodHistory: getAllRowsAsObjects(SHEET_NAMES.FOOD),
+          plannerHistory: getAllRowsAsObjects(SHEET_NAMES.PLANNER),
+          loginLogs: getAllRowsAsObjects(SHEET_NAMES.LOGIN_LOGS)
+       };
+       return createSuccessResponse(allData);
+    }
+
+    // --- User Path: ดึงข้อมูลเฉพาะของผู้ใช้ที่ล็อกอิน ---
     const username = e.parameter.username;
     if (!username) {
       throw new Error("Username parameter is required.");
@@ -94,7 +120,7 @@ function doGet(e) {
     const foodHistory = getAllHistoryForUser(SHEET_NAMES.FOOD, username);
     const plannerHistory = getAllHistoryForUser(SHEET_NAMES.PLANNER, username);
 
-    const allData = {
+    const userData = {
       profile: profile,
       bmiHistory: bmiHistory,
       tdeeHistory: tdeeHistory,
@@ -102,8 +128,8 @@ function doGet(e) {
       plannerHistory: plannerHistory
     };
 
-    return ContentService.createTextOutput(JSON.stringify(allData))
-      .setMimeType(ContentService.MimeType.JSON);
+    return createSuccessResponse(userData);
+
   } catch (error) {
     return createErrorResponse(error);
   }
@@ -116,6 +142,10 @@ function doPost(e) {
     
     if (!user || !user.username) {
         throw new Error("User information is missing.");
+    }
+    // Admin ไม่ควรบันทึกข้อมูลประวัติ (ยกเว้น login log)
+    if (user.role === 'admin' && type !== 'profile' && type !== 'loginLog') {
+        return createSuccessResponse({ status: "Admin history-saving action ignored."});
     }
 
     switch (action) {
@@ -141,7 +171,8 @@ function handleSave(type, payload, user) {
     bmiHistory: SHEET_NAMES.BMI,
     tdeeHistory: SHEET_NAMES.TDEE,
     foodHistory: SHEET_NAMES.FOOD,
-    plannerHistory: SHEET_NAMES.PLANNER
+    plannerHistory: SHEET_NAMES.PLANNER,
+    loginLog: SHEET_NAMES.LOGIN_LOGS
   };
   
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetNameMap[type]);
@@ -153,7 +184,8 @@ function handleSave(type, payload, user) {
     case 'profile':
       newRow = [ 
         new Date(), user.username, user.displayName, user.profilePicture, 
-        payload.gender, payload.age, payload.weight, payload.height, payload.waist, payload.hip, payload.activityLevel 
+        payload.gender, payload.age, payload.weight, payload.height, payload.waist, payload.hip, payload.activityLevel,
+        user.role
       ];
       break;
     case 'bmiHistory':
@@ -186,6 +218,11 @@ function handleSave(type, payload, user) {
        newRow = [ 
          new Date(), user.username, user.displayName, user.profilePicture,
          lastPlan.cuisine, lastPlan.diet, lastPlan.tdee, JSON.stringify(lastPlan.plan) 
+       ];
+       break;
+    case 'loginLog':
+       newRow = [
+         new Date(), user.username, user.displayName, user.role
        ];
        break;
     default:
@@ -224,7 +261,6 @@ function getLatestProfileForUser(username) {
 
   const lastEntry = userData[userData.length - 1];
   
-  // Columns: A=ts, B=user, C=disp, D=pic, E=gender, F=age...
   return {
     gender: lastEntry[4], age: lastEntry[5], weight: lastEntry[6], height: lastEntry[7],
     waist: lastEntry[8], hip: lastEntry[9], activityLevel: lastEntry[10]
@@ -240,19 +276,15 @@ function getAllHistoryForUser(sheetName, username) {
 
   try {
     if (sheetName === SHEET_NAMES.BMI) {
-      // A=ts, B=user, C=disp, D=pic, E=bmi, F=cat
       return userData.map(row => ({ date: row[0], value: row[4], category: row[5] }));
     }
     if (sheetName === SHEET_NAMES.TDEE) {
-      // A=ts, B=user, C=disp, D=pic, E=tdee, F=bmr
       return userData.map(row => ({ date: row[0], value: row[4], bmr: row[5] }));
     }
     if (sheetName === SHEET_NAMES.FOOD) {
-      // A=ts, B=user, C=disp, D=pic, E=desc, F=cal, G=json
       return userData.map(row => ({ date: row[0], id: new Date(row[0]).toISOString(), analysis: JSON.parse(row[6]) }));
     }
     if (sheetName === SHEET_NAMES.PLANNER) {
-      // A=ts, B=user, C=disp, D=pic, E=cui, F=diet, G=tdee, H=json
        return userData.map(row => ({ date: row[0], id: new Date(row[0]).toISOString(), cuisine: row[4], diet: row[5], tdee: row[6], plan: JSON.parse(row[7]) }));
     }
   } catch(e) {
@@ -262,6 +294,38 @@ function getAllHistoryForUser(sheetName, username) {
   return [];
 }
 
+function getAllRowsAsObjects(sheetName) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  if (!sheet || sheet.getLastRow() < 2) {
+    return [];
+  }
+  
+  try {
+    const lastCol = sheet.getLastColumn();
+    const values = sheet.getRange(1, 1, sheet.getLastRow(), lastCol).getValues();
+    
+    const headers = values[0].map(header => typeof header === 'string' ? header.trim() : '');
+    
+    const dataRows = values.slice(1);
+    
+    const objects = dataRows.map(row => {
+      const obj = {};
+      headers.forEach((header, index) => {
+        if (header && index < row.length) {
+          obj[header] = row[index];
+        }
+      });
+      return obj;
+    });
+    
+    return objects;
+  } catch (e) {
+    Logger.log("Error in getAllRowsAsObjects for sheet '" + sheetName + "': " + e.message);
+    return [];
+  }
+}
+
+
 // --- Utility Functions ---
 
 function clearSheetForUser(sheetName, username) {
@@ -270,8 +334,8 @@ function clearSheetForUser(sheetName, username) {
   
   const data = sheet.getRange(1, 1, sheet.getLastRow(), sheet.getLastColumn()).getValues();
   const rowsToDelete = [];
-  // username is in column B, which is index 1 of the inner array
-  for (let i = data.length - 1; i >= 1; i--) { // Iterate backwards when deleting
+  
+  for (let i = data.length - 1; i >= 1; i--) { // Iterate backwards
     if (data[i][1] === username) {
       rowsToDelete.push(i + 1);
     }
@@ -288,7 +352,7 @@ function createSuccessResponse(data) {
 }
 
 function createErrorResponse(error) {
-  Logger.log(error); // Log the actual error for debugging
+  Logger.log(error);
   return ContentService.createTextOutput(JSON.stringify({ status: "error", message: error.message }))
     .setMimeType(ContentService.MimeType.JSON);
 }
@@ -302,14 +366,11 @@ function createErrorResponse(error) {
 
 เนื่องจากเราได้เปลี่ยนแปลงโค้ดและโครงสร้างข้อมูลครั้งใหญ่ คุณจำเป็นต้อง **Deploy ใหม่** เพื่อให้การเปลี่ยนแปลงมีผล
 
-1.  ที่มุมบนขวาของหน้าจอ กดปุ่มสีน้ำเงิน `ทำให้ใช้งานได้ (Deploy)` > `จัดการการทำให้ใช้งานได้ (Manage deployments)`
-2.  เลือก Deployment ที่มีอยู่ของคุณ แล้วกดที่ไอคอนดินสอ (✏️) เพื่อแก้ไข
-3.  ในช่อง "เวอร์ชัน" เลือก **`เวอร์ชันใหม่ (New version)`**
+1.  ที่มุมบนขวาของหน้าจอ กดปุ่มสีน้ำเงิน `ทำให้ใช้งานได้ (Deploy)` > `การทำให้ใช้งานได้รายการใหม่ (New deployment)`
+2.  คลิกไอคอนฟันเฟือง (⚙️) ข้าง "เลือกประเภท" และเลือกประเภทเป็น `เว็บแอป (Web app)`
+3.  ตั้งค่า "ผู้ที่เข้าถึงได้" เป็น **`ทุกคน (Anyone)`** (สำคัญมาก!)
 4.  กดปุ่ม `ทำให้ใช้งานได้ (Deploy)`
+5.  **ให้สิทธิ์การเข้าถึง (Authorize access)** ตามขั้นตอนที่ปรากฏขึ้นอีกครั้ง
+6.  คัดลอก **URL ของเว็บแอป** อันใหม่ที่ได้รับมา และนำไปวางในช่องตั้งค่าในแอปพลิเคชัน
 
-### ขั้นตอนที่ 5: ใช้งาน Web App URL
-
-1.  **URL ของเว็บแอป** ของคุณจะยังคงเป็นอันเดิม ไม่จำเป็นต้องคัดลอกไปใส่ในแอปใหม่อีก
-2.  กลับไปที่แอปพลิเคชัน **"ศูนย์โภชนาการอัจฉริยะ"** และรีเฟรชหน้าจอ
-
-**เรียบร้อย!** ตอนนี้แอปพลิเคชันของคุณได้เชื่อมต่อกับ Google Sheets เวอร์ชันสมบูรณ์แล้ว ข้อมูลทั้งหมดของคุณจะถูกซิงค์โดยอัตโนมัติ
+**เรียบร้อย!** ตอนนี้แอปพลิเคชันของคุณได้เชื่อมต่อกับ Google Sheets เวอร์ชันสมบูรณ์พร้อมระบบ Admin และระบบบันทึกการเข้าใช้งานแล้ว
