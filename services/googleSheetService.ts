@@ -52,8 +52,12 @@ export const fetchAllDataFromSheet = async (scriptUrl: string, user: User): Prom
         }
         console.error("Error fetching data from sheet:", result.message);
         return null;
-    } catch (error) {
-        console.error("Error fetching all data from Google Sheet:", error);
+    } catch (error: any) {
+        if (error.message === 'Failed to fetch') {
+            console.warn("Could not connect to Google Sheets. Check the URL or your internet connection.");
+        } else {
+            console.error("Error fetching all data from Google Sheet:", error);
+        }
         return null;
     }
 };
@@ -76,8 +80,12 @@ export const fetchAllAdminDataFromSheet = async (scriptUrl: string, adminKey: st
         }
         console.error("Admin data fetch error:", result.message);
         return null;
-    } catch (error) {
-        console.error("Error fetching all admin data from Google Sheet:", error);
+    } catch (error: any) {
+        if (error.message === 'Failed to fetch') {
+            console.warn("Could not connect to Google Sheets (Admin). Check the URL or your internet connection.");
+        } else {
+            console.error("Error fetching all admin data from Google Sheet:", error);
+        }
         return null;
     }
 };
@@ -95,8 +103,12 @@ export const saveDataToSheet = async (scriptUrl: string, type: string, payload: 
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const result = await response.json();
         return result.status === 'success';
-    } catch (error) {
-        console.error(`Error saving ${type} to Google Sheet:`, error);
+    } catch (error: any) {
+        if (error.message === 'Failed to fetch') {
+            console.warn(`Could not save ${type} to Google Sheets. Connection failed.`);
+        } else {
+            console.error(`Error saving ${type} to Google Sheet:`, error);
+        }
         return false;
     }
 };
@@ -114,9 +126,12 @@ export const clearHistoryInSheet = async (scriptUrl: string, type: 'bmiHistory' 
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const result = await response.json();
         return result.status === 'success';
-    } catch (error)
-        {
-        console.error(`Error clearing ${type} in Google Sheet:`, error);
+    } catch (error: any) {
+        if (error.message === 'Failed to fetch') {
+            console.warn(`Could not clear ${type} in Google Sheets. Connection failed.`);
+        } else {
+            console.error(`Error clearing ${type} in Google Sheet:`, error);
+        }
         return false;
     }
 };

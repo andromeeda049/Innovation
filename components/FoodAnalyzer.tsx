@@ -244,16 +244,16 @@ const FoodAnalyzer: React.FC = () => {
         (error) => {
             switch (error.code) {
                 case error.PERMISSION_DENIED:
-                    setLocationError("คุณปฏิเสธการเข้าถึงตำแหน่ง โปรดเปิดการอนุญาตในตั้งค่าเบราว์เซอร์");
+                    setLocationError("คุณปฏิเสธการเข้าถึงตำแหน่ง");
                     break;
                 case error.POSITION_UNAVAILABLE:
-                    setLocationError("ไม่สามารถระบุตำแหน่งได้ อาจเกิดจากสัญญาณอ่อน โปรดลองอีกครั้งในที่โล่ง");
+                    setLocationError("ข้อมูลตำแหน่งไม่พร้อมใช้งาน");
                     break;
                 case error.TIMEOUT:
-                    setLocationError("หมดเวลาในการร้องขอตำแหน่ง โปรดตรวจสอบการเชื่อมต่ออินเทอร์เน็ต");
+                    setLocationError("หมดเวลาในการร้องขอตำแหน่ง");
                     break;
                 default:
-                    setLocationError("เกิดข้อผิดพลาดที่ไม่รู้จักในการระบุตำแหน่ง กรุณาลองใหม่อีกครั้ง");
+                    setLocationError("เกิดข้อผิดพลาดที่ไม่รู้จัก");
                     break;
             }
             setLoading(false);

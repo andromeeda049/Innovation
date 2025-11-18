@@ -37,7 +37,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [plannerHistory, _setPlannerHistory] = useLocalStorage<PlannerHistoryEntry[]>('plannerHistory', []);
   const [latestFoodAnalysis, setLatestFoodAnalysis] = useLocalStorage<NutrientInfo | null>('latestFoodAnalysis', null);
   const [userProfile, _setUserProfile] = useLocalStorage<UserProfile>('userProfile', defaultProfile);
-  const [scriptUrl, setScriptUrl] = useLocalStorage<string>('googleScriptUrl', 'https://script.google.com/macros/s/AKfycbx6e8zDxmmoZWg2iW_oQHlpfqWZrpS-2Vkq9aFPlnW5MVdGPf8_-yaEJ7iugtdAWvJT/exec');
+  const [scriptUrl, setScriptUrl] = useLocalStorage<string>('googleScriptUrl', '');
   const [apiKey, setApiKey] = useLocalStorage<string>('geminiApiKey', (typeof process !== 'undefined' && process.env.API_KEY) || '');
   const [isDataSynced, setIsDataSynced] = useState(true);
 
