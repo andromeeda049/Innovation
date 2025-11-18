@@ -1,0 +1,130 @@
+import React from 'react';
+
+export interface FoodItem {
+  name: string;
+  calories: number;
+}
+
+export interface NutrientInfo {
+  calories: number;
+  protein: number;
+  carbohydrates: number;
+  fat: number;
+  description: string;
+  items: FoodItem[];
+}
+
+export type AppView = 'home' | 'profile' | 'dashboard' | 'bmi' | 'tdee' | 'food' | 'coach' | 'planner' | 'literacy' | 'settings';
+export type Theme = 'light' | 'dark';
+
+export interface User {
+  username: string;
+  displayName: string;
+  profilePicture: string;
+}
+
+export interface UserProfile {
+  gender: 'male' | 'female';
+  age: string;
+  weight: string;
+  height: string;
+  waist: string;
+  hip: string;
+  activityLevel: number;
+}
+
+export interface BMIHistoryEntry {
+  value: number;
+  category: string;
+  date: string;
+}
+
+export interface TDEEHistoryEntry {
+  value: number;
+  bmr: number;
+  date: string;
+}
+
+export interface FoodHistoryEntry {
+  id: string;
+  date: string;
+  analysis: NutrientInfo;
+}
+
+export interface LocalFoodSuggestion {
+  name: string;
+  description: string;
+  calories: number;
+}
+
+// Types for Personalized Planner
+export interface PlannerResults {
+  bmi: number;
+  whr: number;
+  whrRisk: string;
+  bmr: number;
+  tdee: number;
+  proteinGoal: number;
+  carbGoal: number;
+  fatGoal: number;
+}
+
+export interface Meal {
+  menu: string;
+  protein: number;
+  carbohydrate: number;
+  fat: number;
+  calories: number;
+}
+
+export interface MealPlanDay {
+  day: string;
+  breakfast: Meal;
+  lunch: Meal;
+  dinner: Meal;
+  dailyTotal: {
+    protein: number;
+    carbohydrate: number;
+    fat: number;
+    calories: number;
+  };
+}
+
+export type MealPlan = MealPlanDay[];
+
+export interface PlannerHistoryEntry {
+  id: string;
+  date: string;
+  cuisine: string;
+  diet: string;
+  tdee: number;
+  plan: MealPlan;
+}
+
+export interface AppContextType {
+  activeView: AppView;
+  setActiveView: React.Dispatch<React.SetStateAction<AppView>>;
+  currentUser: User | null;
+  login: (user: User) => void;
+  logout: () => void;
+  theme: Theme;
+  setTheme: React.Dispatch<React.SetStateAction<Theme>>;
+  bmiHistory: BMIHistoryEntry[];
+  setBmiHistory: React.Dispatch<React.SetStateAction<BMIHistoryEntry[]>>;
+  tdeeHistory: TDEEHistoryEntry[];
+  setTdeeHistory: React.Dispatch<React.SetStateAction<TDEEHistoryEntry[]>>;
+  foodHistory: FoodHistoryEntry[];
+  setFoodHistory: React.Dispatch<React.SetStateAction<FoodHistoryEntry[]>>;
+  plannerHistory: PlannerHistoryEntry[];
+  setPlannerHistory: React.Dispatch<React.SetStateAction<PlannerHistoryEntry[]>>;
+  latestFoodAnalysis: NutrientInfo | null;
+  setLatestFoodAnalysis: React.Dispatch<React.SetStateAction<NutrientInfo | null>>;
+  userProfile: UserProfile;
+  setUserProfile: (profileData: UserProfile, accountData: { displayName: string; profilePicture: string; }) => void;
+  scriptUrl: string;
+  setScriptUrl: React.Dispatch<React.SetStateAction<string>>;
+  isDataSynced: boolean;
+  clearBmiHistory: () => void;
+  clearTdeeHistory: () => void;
+  clearFoodHistory: () => void;
+}

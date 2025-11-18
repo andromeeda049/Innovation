@@ -1,0 +1,8 @@
+{
+  "name": "ศูนย์โภชนาการอัจฉริยะ (Smart Nutrition Center)",
+  "description": "เว็บแอปพลิเคชันสำหรับคำนวณค่าดัชนีมวลกาย (BMI), การเผาผลาญพลังงานในแต่ละวัน (TDEE), และประเมินแคลอรี่พร้อมสารอาหารจากรูปภาพอาหารด้วย Gemini API",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}
